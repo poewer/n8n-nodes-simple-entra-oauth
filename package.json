@@ -1,0 +1,66 @@
+{
+  "name": "n8n-nodes-simple-entra-oauth",
+  "version": "1.0.1",
+  "description": "Simple Microsoft Entra ID OAuth nodes for n8n with easy authentication flow",
+  "keywords": [
+    "n8n-community-nodes",
+    "n8n-nodes",
+    "microsoft",
+    "entra",
+    "oauth",
+    "authentication",
+    "azure",
+    "graph-api"
+  ],
+  "license": "MIT",
+  "homepage": "https://github.com/poewer/n8n-nodes-simple-entra-oauth",
+  "author": {
+    "name": "Poewer",
+    "email": "your.email@example.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/poewer/n8n-nodes-simple-entra-oauth.git"
+  },
+  "bugs": {
+    "url": "https://github.com/poewer/n8n-nodes-simple-entra-oauth/issues"
+  },
+  "main": "index.js",
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "scripts": {
+    "build": "tsc && gulp build:icons",
+    "dev": "tsc --watch",
+    "format": "prettier nodes --write",
+    "lint": "eslint nodes package.json",
+    "lintfix": "eslint nodes package.json --fix",
+    "prepublishOnly": "npm run build"
+  },
+  "files": [
+    "dist",
+    "nodes"
+  ],
+  "n8n": {
+    "n8nNodesApiVersion": 1,
+    "credentials": [
+      "dist/credentials/MicrosoftEntraOAuthCredentials.credentials.ts"
+    ],
+    "nodes": [
+      "dist/nodes/SimpleEntraOAuthNode/SimpleEntraOAuthNode.node.ts",
+      "dist/nodes/SimpleEntraTokenExchangeNode/SimpleEntraTokenExchangeNode.node.ts"
+    ]
+  },
+  "devDependencies": {
+    "@types/node": "^18.0.0",
+    "@typescript-eslint/parser": "~5.45",    
+    "eslint-plugin-n8n-nodes-base": "^1.11.0",
+    "gulp": "^4.0.2",
+    "n8n-workflow": "*",
+    "prettier": "^2.7.1",
+    "typescript": "~4.8.4"
+  },
+  "peerDependencies": {
+    "n8n-workflow": "*"
+  }
+}
