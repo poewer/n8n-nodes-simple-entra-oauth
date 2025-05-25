@@ -29,7 +29,7 @@ export class SimpleEntraOAuthNode implements INodeType {
 				name: 'default',
 				httpMethod: 'GET',
 				responseMode: 'onReceived',
-				path: 'oauth',
+				path: '={{$parameter["customPath"] || "oauth"}}',
 			},
 		],
 		properties: [
@@ -51,6 +51,14 @@ export class SimpleEntraOAuthNode implements INodeType {
 					},
 				],
 				default: 'generateSetup',
+			},
+			{
+				displayName: 'Custom Webhook Path',
+				name: 'customPath',
+				type: 'string',
+				default: 'oauth',
+				placeholder: 'oauth, auth, microsoft-login, etc.',
+				description: 'Custom path for webhook URL (instead of workflow ID)',
 			},
 			{
 				displayName: 'User ID',
@@ -86,19 +94,6 @@ export class SimpleEntraOAuthNode implements INodeType {
 							},
 						},
 						description: 'Your n8n instance domain (e.g., https://n8n.example.com)',
-					},
-					{
-						displayName: 'Workflow ID',
-						name: 'workflowId',
-						type: 'string',
-						default: '',
-						placeholder: 'Auto-detect or enter manually',
-						displayOptions: {
-							show: {
-								useCustomDomain: [true],
-							},
-						},
-						description: 'Workflow ID (leave empty for auto-detection)',
 					},
 				],
 			},
@@ -321,6 +316,7 @@ export class SimpleEntraOAuthNode implements INodeType {
 async function generateSetupInfo(context: IExecuteFunctions, itemIndex: number): Promise<IDataObject> {
 	try {
 		const userId = context.getNodeParameter('userId', itemIndex) as string || 'default_user';
+		const customPath = context.getNodeParameter('customPath', itemIndex) as string || 'oauth';
 		const instanceConfig = context.getNodeParameter('instanceConfig', itemIndex) as IDataObject;
 		
 		let callbackUrl: string;
@@ -329,38 +325,23 @@ async function generateSetupInfo(context: IExecuteFunctions, itemIndex: number):
 		if (instanceConfig.useCustomDomain) {
 			// Use custom domain configuration
 			const customDomain = instanceConfig.customDomain as string || 'https://your-n8n-instance.com';
-			const workflowId = instanceConfig.workflowId as string;
-			
-			if (workflowId) {
-				webhookUrl = `${customDomain}/webhook/${workflowId}/oauth`;
-				callbackUrl = `${webhookUrl}?userId=${userId}`;
-			} else {
-				// Try to get workflow ID from context
-				try {
-					const autoWorkflowId = context.getWorkflow().id;
-					webhookUrl = `${customDomain}/webhook/${autoWorkflowId}/oauth`;
-					callbackUrl = `${webhookUrl}?userId=${userId}`;
-				} catch {
-					webhookUrl = `${customDomain}/webhook/WORKFLOW_ID/oauth`;
-					callbackUrl = `${webhookUrl}?userId=${userId}`;
-				}
-			}
+			webhookUrl = `${customDomain}/webhook/${customPath}`;
+			callbackUrl = `${webhookUrl}?userId=${userId}`;
 		} else {
 			// Fallback: construct URL from available information
-			const workflowId = context.getWorkflow().id;
-			// Since we can't get the base URL easily, provide a template
-			webhookUrl = `https://YOUR_N8N_DOMAIN/webhook/${workflowId}/oauth`;
+			webhookUrl = `https://YOUR_N8N_DOMAIN/webhook/${customPath}`;
 			callbackUrl = `${webhookUrl}?userId=${userId}`;
 		}
 
 		return {
 			userId,
+			customPath,
 			callbackUrl,
 			webhookUrl,
 			configuration: {
 				usingCustomDomain: instanceConfig.useCustomDomain || false,
 				customDomain: instanceConfig.customDomain || 'not configured',
-				workflowId: instanceConfig.workflowId || 'auto-detected'
+				customPath: customPath
 			},
 			setupInstructions: {
 				step1: "Go to Azure Portal → App registrations → Your App → Authentication",
@@ -371,7 +352,7 @@ async function generateSetupInfo(context: IExecuteFunctions, itemIndex: number):
 				step6: "Then use 'Create Login Link' operation with your Azure app details"
 			},
 			azurePortalUrl: "https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade",
-			note: `This callback URL is unique for user: ${userId}`,
+			note: `This callback URL uses custom path: ${customPath} and is unique for user: ${userId}`,
 			nextStep: "After adding the redirect URI in Azure, use the 'Create Login Link' operation",
 			ready: instanceConfig.useCustomDomain ? true : false
 		};
@@ -387,6 +368,7 @@ async function generateSetupInfo(context: IExecuteFunctions, itemIndex: number):
 async function createLoginLink(context: IExecuteFunctions, itemIndex: number): Promise<IDataObject> {
 	try {
 		const userId = context.getNodeParameter('userId', itemIndex) as string || 'default_user';
+		const customPath = context.getNodeParameter('customPath', itemIndex) as string || 'oauth';
 		const instanceConfig = context.getNodeParameter('instanceConfig', itemIndex) as IDataObject;
 		const azureApp = context.getNodeParameter('azureApp', itemIndex) as IDataObject;
 		const permissions = context.getNodeParameter('permissions', itemIndex) as string[];
@@ -409,29 +391,11 @@ async function createLoginLink(context: IExecuteFunctions, itemIndex: number): P
 		if (instanceConfig.useCustomDomain) {
 			// Use custom domain configuration
 			const customDomain = instanceConfig.customDomain as string || 'https://your-n8n-instance.com';
-			const workflowId = instanceConfig.workflowId as string;
-			
-			if (workflowId) {
-				webhookUrl = `${customDomain}/webhook/${workflowId}/oauth`;
-				callbackUrl = `${webhookUrl}?userId=${userId}`;
-			} else {
-				// Try to get workflow ID from context
-				try {
-					const autoWorkflowId = context.getWorkflow().id;
-					webhookUrl = `${customDomain}/webhook/${autoWorkflowId}/oauth`;
-					callbackUrl = `${webhookUrl}?userId=${userId}`;
-				} catch {
-					return {
-						error: 'Workflow ID required',
-						message: 'When using custom domain, you must provide Workflow ID or enable auto-detection',
-						instructions: 'Please fill in the Workflow ID in n8n Instance Configuration'
-					};
-				}
-			}
+			webhookUrl = `${customDomain}/webhook/${customPath}`;
+			callbackUrl = `${webhookUrl}?userId=${userId}`;
 		} else {
 			// Fallback: construct URL from available information  
-			const workflowId = context.getWorkflow().id;
-			webhookUrl = `https://YOUR_N8N_DOMAIN/webhook/${workflowId}/oauth`;
+			webhookUrl = `https://YOUR_N8N_DOMAIN/webhook/${customPath}`;
 			callbackUrl = `${webhookUrl}?userId=${userId}`;
 		}
 
@@ -457,13 +421,14 @@ async function createLoginLink(context: IExecuteFunctions, itemIndex: number): P
 
 		return {
 			userId,
+			customPath,
 			loginUrl,
 			callbackUrl,
 			webhookUrl,
 			configuration: {
 				usingCustomDomain: instanceConfig.useCustomDomain || false,
 				customDomain: instanceConfig.customDomain || 'not configured',
-				workflowId: instanceConfig.workflowId || 'auto-detected'
+				customPath: customPath
 			},
 			azure: {
 				tenantId,
